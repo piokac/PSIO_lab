@@ -4,32 +4,37 @@
 #include <sstream>
 #include <utility>
 
-int Histogram::value2bin(double value) const
-{
-    return static_cast<int>(value / bin_size_);
-}
-
-double Histogram::bin2value(double bin) const
-{
-    return static_cast<double>(bin * bin_size_);
-}
-
-Histogram::Histogram(int bin_size, const std::vector<double> &data) : bin_size_(bin_size)
+Histogram::Histogram(const std::vector<int> &data)
 {
     for (auto &el : data) {
-        bins_[value2bin(el)]++;
+        bins_[el]++;
     }
 }
 
-void Histogram::emplace(double v)
+Histogram Histogram::generate(int min, int max, int count)
 {
-    bins_[value2bin(v)]++;
+    Histogram h;
+    for (int i = 0; i < count; i++)
+        h.emplace(min + rand() % (max - min));
+    return h;
+}
+Histogram Histogram::generate(int count, int (*func_ptr)())
+{
+    Histogram h;
+    for (int i = 0; i < count; i++)
+        h.emplace(func_ptr());
+    return h;
 }
 
-void Histogram::emplace(const std::vector<double> &data)
+void Histogram::emplace(int v)
+{
+    bins_[v]++;
+}
+
+void Histogram::emplace(const std::vector<int> &data)
 {
     for (auto &el : data) {
-        bins_[value2bin(el)]++;
+        bins_[el]++;
     }
 }
 
@@ -57,35 +62,36 @@ bool Histogram::from_csv(const std::string &filename, char delim, int column_idx
                 }
             }
         }
+        return true;
 
     } else {
         return false;
     }
 }
 
-std::pair<double, int> Histogram::max() const
+std::pair<int, int> Histogram::max() const
 {
     auto v = std::max_element(bins_.begin(),
                               bins_.end(),
                               [](const std::pair<int, int> &el1, const std::pair<int, int> &el2) {
                                   return el1.second < el2.second;
                               });
-    return {bin2value(v->first), v->second};
+    return {v->first, v->second};
 }
 
-std::pair<double, double> Histogram::range() const
+std::pair<int, int> Histogram::range() const
 {
     if (bins_.size() == 0) {
         return {0, 0};
     }
-    return {bin2value(bins_.begin()->first), bin2value(bins_.rbegin()->first)};
+    return {bins_.begin()->first, bins_.rbegin()->first};
 }
 
-std::vector<double> Histogram::unique_bins() const
+std::vector<int> Histogram::unique_bins() const
 {
-    std::vector<double> bins;
+    std::vector<int> bins;
     for (auto &el : bins_) {
-        bins.emplace_back(bin2value(el.first));
+        bins.emplace_back(el.first);
     }
     return bins;
 }
@@ -94,26 +100,26 @@ Histogram::BinsVector Histogram::unique_items() const
 {
     Histogram::BinsVector vect;
     std::copy(bins_.begin(), bins_.end(), std::back_inserter(vect));
-    int bin_size = bin_size_;
-    std::transform(vect.begin(),
-                   vect.end(),
-                   vect.begin(),
-                   [bin_size](const std::pair<double, int> &v) {
-                       return std::make_pair(v.first * bin_size, v.second);
-                   });
+    //    int bin_size = bin_size_;
+    //    std::transform(vect.begin(),
+    //                   vect.end(),
+    //                   vect.begin(),
+    //                   [bin_size](const std::pair<double, int> &v) {
+    //                       return std::make_pair(v.first * bin_size, v.second);
+    //                   });
     return vect;
 }
 
-Histogram &Histogram::operator<<(double v)
+Histogram &Histogram::operator<<(int v)
 {
     emplace(v);
     return *this;
 }
 
-int Histogram::operator[](double v) const
+int Histogram::operator[](int v) const
 {
     try {
-        return bins_.at(value2bin(v));
+        return bins_.at(v);
     } catch (std::out_of_range) {
         return 0;
     }
@@ -121,7 +127,7 @@ int Histogram::operator[](double v) const
 
 std::istream &operator>>(std::istream &str, Histogram &hist)
 {
-    double v;
+    int v;
     str >> v;
     hist.emplace(v);
     return str;
@@ -130,7 +136,7 @@ std::istream &operator>>(std::istream &str, Histogram &hist)
 std::ostream &operator<<(std::ostream &str, const Histogram &hist)
 {
     for (const auto &[bin, freq] : hist.bins_) {
-        str << hist.bin2value(bin) << " - " << freq << std::endl;
+        str << bin << " - " << freq << std::endl;
     }
     return str;
 }
